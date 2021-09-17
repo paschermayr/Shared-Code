@@ -127,3 +127,17 @@ function flatten(::Type{T}, strict::Bool, x::NamedTuple{names}) where {T<:Abstra
         return x_vec, unflatten_to_NamedTuple_AD
     end
 end
+
+############################################################################################
+using BenchmarkTools
+nt = (a = 1, b = [2, 3], c = Float32(4.), d = 5.)
+typeof(nt.c) #Float32
+nt_vec, unflat = flatten(Float16, true, nt) #Vector{Float16} with 2 elements, unflatten_to_NamedTuple
+nt2 = unflat(nt_vec)
+typeof(nt2.c) #Float32
+@btime $unflat($nt_vec) #20.942 ns (0 allocations: 0 bytes)
+
+#For AD no type conversion:
+nt_vec, unflat = flatten(Float64, false, nt) #Vector{Float64} with 2 elements, unflatten_to_NamedTuple
+nt2 = unflat(nt_vec)
+typeof(nt2.c) #Float64
