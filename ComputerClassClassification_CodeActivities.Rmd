@@ -1,0 +1,123 @@
+---
+title: "ST308-Classification-with code for the activity"
+output: html_document
+---
+ 
+You will need to load the core library for the course textbook:
+```{r}
+library(ISLR)
+```
+
+
+## Demonstration
+
+In this problem, you will develop a model to predict whether a given car gets high or low gas mileage based on the `Auto` dataset from the `ISLR` package.
+
+(a) Create a binary variable, `mpg01`, that contains a 1 if `mpg` contains a value above its median, and a 0 if `mpg` contains a value below its median. You can compute the median using the `median()` function. Note you may find it helpful to use the `data.frame()` function to create a single data set containing both `mpg01` and the other `Auto` variables.
+
+```{r}
+library(ISLR)
+summary(Auto)
+?attach
+head(Auto)
+attach(Auto)
+mpg01 <-  rep(0, length(mpg))
+mpg02 <-  rep(0, length(Auto$mpg))
+
+mpg01[mpg>median(mpg)] <- 1
+Auto <- data.frame(Auto, mpg01)
+head(Auto)
+```
+
+
+(b) Split the data into a training set and a test set.
+
+```{r}
+train <-  (year %% 2 == 0) # if the year is even
+test <-  !train
+Auto.train <-  Auto[train,]
+Auto.test <-  Auto[test,]
+mpg01.test <-  mpg01[test]
+```
+
+(c) Perform LDA on the training data in order to predict `mpg01` using the variables that seemed most associated with `mpg01` in (b). What is the test error of the model obtained?
+
+```{r}
+# LDA
+library(MASS)
+?lda
+#Assumed MV-Normal distributed with group specific mean and common Covariance
+lda.fit <-  lda(mpg01 ~ cylinders + weight + displacement + horsepower,
+              data = Auto, subset = train)
+lda.fit
+# Coefficients: Usually, shows the linear combination of predictor variables that are used to form the LDA decision rule -> Plug into discriminant function
+## Note - we just use the posterior distribution
+lda.pred <-  predict(lda.fit, Auto.test)
+head(lda.pred$class)
+head(lda.pred$posterior)
+head(lda.pred$x)
+mean(lda.pred$class != mpg01.test)
+```
+
+(d) Perform logistic regression on the training data in order to predict `mpg01` using the variables that seemed most associated with `mpg01` in (b). What is the test error of the model obtained?
+
+```{r}
+# Logistic regression
+?glm
+#family = binomial -> logit function used for classification
+glm.fit <-  glm(mpg01 ~ cylinders + weight + displacement + horsepower,
+              data = Auto,
+              family = binomial,
+              subset = train)
+# AIC for Model comparison -> the lower the better
+glm.fit
+glm.probs <-  predict(glm.fit, Auto.test, type = "response")
+head(glm.probs)
+glm.pred <-  rep(0, length(glm.probs))
+glm.pred[glm.probs > 0.5] <- 1
+mean(glm.pred != mpg01.test)
+```
+
+#Activity 
+
+Repeat the above for the Stock market data in the ISLR package
+
+```{r}
+library (ISLR)
+names(Smarket )
+dim(Smarket )
+summary(Smarket )
+```
+
+Split into train and test data
+
+```{r}
+train =(Smarket$Year <2005)
+Smarket.2005= Smarket[! train ,]
+dim(Smarket.2005)
+Direction.2005= Smarket$Direction[! train]
+```
+
+Fit LDA and logistic regression models to the train dataset and evaluate their predictons in the test dataset. Try to find a model based on some of the covariates such that it has as good accuracy rate as possible.
+
+Put your code below:
+
+
+Logistic regression
+```{r}
+glm.fits=glm(Direction~Lag1+Lag2,data=Smarket,family=binomial,subset=train)
+glm.probs=predict(glm.fits,Smarket.2005,type="response")
+glm.pred=rep("Down" ,252)
+glm.pred[glm.probs >.5]="Up"
+mean(glm.pred==Direction.2005)
+```
+
+LDA
+
+```{r}
+lda.fit=lda(Direction~Lag1+Lag2,data=Smarket ,subset=train)
+lda.pred=predict(lda.fit,Smarket.2005)
+lda.class=lda.pred$class
+mean(lda.class == Direction.2005)
+```
+
