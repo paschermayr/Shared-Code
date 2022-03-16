@@ -1,0 +1,272 @@
+---
+title: "ComputerClassMCMC_pt2"
+author: "Kostas Kalogeropoulos"
+date: "11/03/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## `JAGS`
+
+To install `JAGS` 
+
+ 1. Download and install the `JAGS` library from [here](https://sourceforge.net/projects/mcmc-jags/)
+ 2. Install the R package `R2jags`. Also install the packages `coda` and `bayesplot`.
+
+### Demonstration
+
+#### Define the model, provide the data and run the MCMC
+
+First simulate data and put them in a list.
+
+```{r}
+set.seed(1)
+N=100;
+mu = 5;
+sigma = 4;
+obs = rnorm(N,mu,sigma);
+mean(obs)
+sd(obs)
+
+toy_dat <- list(N=N, y=obs)
+toy_dat
+```
+
+Then load the `R2jags` package.
+
+```{r}
+library("R2jags")
+```
+
+The model can be defined with the *BUGS* syntax below:
+
+```{r}
+toy_example <- function() {
+  for (i in 1:N) {
+    y[i] ~ dnorm(mu,eta)  
+  }
+  mu ~ dnorm(0,0.0001) # prior for mu
+  eta ~ dgamma(0.01,0.01)
+  sigma2 <- 1/eta
+}
+```
+
+To fit the model on the data  `toy_dat` use the code below
+
+```{r}
+set.seed(1)    # for reproducibility, optional
+toy_jags <- 
+  jags(
+    data = toy_dat,
+    model.file = toy_example,
+    parameters.to.save = c("mu", "sigma2")
+  )
+```
+A first summary of the MCMC output can be obtained with the following code
+
+```{r}
+toy_jags
+```
+
+#### Using `coda` to analyse the MCMC output
+
+```{r}
+toy_mcmc <- as.mcmc(toy_jags)
+plot(toy_mcmc)
+```
+#### Using `bayesplot` to analyse the MCMC output
+
+```{r}
+'
+library(bayesplot)
+mcmc_areas(
+  toy_mcmc,            
+  pars = c("mu","sigma2"),     # make a plot for the theta parameter
+  prob = 0.95)  
+mcmc_trace(toy_mcmc, pars = c("mu","sigma2"))
+'
+```
+
+### Activity
+
+Repeat the above exercise for the following model
+$$
+y_i\sim \text{Poisson}(\lambda), \;\;i=1,...,N,
+$$
+with priors 
+$$
+\lambda \sim \text{Gamma}(2,\beta),
+$$
+$$
+\beta \sim \text{Exponential}(1)
+$$
+It can be shown (good exercise) that the full conditionals for $\lambda,\beta$ are the Gamma$(2 + \sum_i y_i,n+\beta)$.
+and the Gamma$(3,1+\lambda)$.
+
+Data can be simulated in the following way:
+
+```{r}
+set.seed(1)
+N=100;
+beta = 1;
+lambda = rgamma(1,2,beta);
+y = rpois(N,lambda);
+mean(y)
+lambda
+```
+
+*Hint* the Poisson distribution in JAGS is `dpois`.
+
+Put your code for using `JAGS` below:
+
+Model
+
+```{r}
+poisson_dat <- list(N=N, y=y)
+poisson_example <- function() {
+  for (i in 1:N) {
+    y[i] ~ dpois(lambda)  
+  }
+  lambda ~ dgamma(2,beta)
+  beta ~ dexp(1)
+}
+```
+
+fit MCMC
+
+```{r}
+set.seed(1)    # for reproducibility, optional
+poisson_jags <- 
+  jags(
+    data = poisson_dat,
+    model.file = poisson_example,
+    parameters.to.save = c("lambda","beta")
+  )
+```
+
+MCMC output analysis
+
+```{r}
+poisson_jags
+poisson_mcmc <- as.mcmc(poisson_jags)
+plot(poisson_mcmc)
+'
+mcmc_areas(
+ poisson_mcmc,            
+  pars = c("lambda","beta"),     # make a plot for the theta parameter
+  prob = 0.95)  
+mcmc_trace(poisson_mcmc, pars = c("lambda","beta"))
+'
+```
+
+
+## `RStan`
+
+See Moodle posts for installing `RStan`
+
+### Demonstration
+
+```{r}
+library("rstan")
+rstan_options(auto_write = TRUE)
+```
+
+
+We will use the same simulated data as before.
+
+```{r}
+set.seed(10)
+N=1000;
+mu = 5;
+sigma = 4;
+obs = rnorm(N,mu,sigma);
+mean(obs)
+sd(obs)
+
+toy_dat <- list(N=N, y=obs)
+```
+
+For the model see the file `ToyExample.stan`. The `RStan` language is similar to that of `JAGS`. Next we run MCMC
+
+```{r}
+## for MCMC
+fit <- stan(file = 'ToyExample.stan', data = toy_dat, init=0)
+```
+
+Finally, we inspect the output of the MCMC draws.
+
+```{r}
+print(fit)
+plot(fit)
+pairs(fit, pars = c("mu", "sigma"))
+traceplot(fit)
+```
+
+#### Activity
+
+Work with Boston dataset from the MASS library and fit a Bayesian linear regression model for the response variable 'medv' (median value home price) based on the independent variables.
+
+The data can be loaded with the code below. A linear regression model (non-Bayesian) is also fit below for reference.
+
+```{r}
+library(MASS)
+summary(Boston)
+lreg <- lm(medv~.,data=Boston)
+summary(lreg)
+```
+
+The model and priors are given below
+
+$$
+y\sim N(X\beta,\sigma^2)
+$$
+$$
+\sigma \sim N(0,100^2),\;\;\;\sigma>0
+$$
+
+$$
+\beta_i \sim N(0,100^2), \;\;\;i=1,\dots,p.
+$$
+
+The data can be prepared in the following way and put into the list 'boston_dat'
+
+```{r}
+y = Boston$medv
+n = length(y) # number of observations
+X = cbind(rep(1,n),subset(Boston, select = -medv)) # add one column of 1's for the constant
+p = dim(X)[2] # number of variables plus the constant
+
+boston_dat=list(n=n, p=p, X=X, y=y)
+```
+
+##### Hints for the stan file
+
+ - The X matrix needs to declared in the data section using *matrix[n,p] X;* 
+ - The value p should also be declared there in a similar manner with n.
+ - For matrix/vector multiplication in Stan use A * B. If you want to multiply componentwise use A .* B.
+ - the following lines of code do the same thing
+ 
+
+```{}  
+  for (i in 1:n)
+    x[i] ~ normal(0,1)
+```  
+
+```{}
+x ~ normal(0,1)
+```
+
+Write your stan file ans put your code for running and reporting MCMC (using stan) below:
+
+
+```{r}
+NormalLR <-stan(file = 'LinearRegression.stan', data = boston_dat,chains=1,init=0,seed=1)
+```
+
+```{r}
+print(NormalLR,digits_summary = 3)
+traceplot(NormalLR,pars=c('beta','sigma'))
+```

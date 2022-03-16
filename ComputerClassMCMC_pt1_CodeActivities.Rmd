@@ -149,12 +149,14 @@ mean(obs)
 sd(obs)
 
 toy_dat <- list(N=N, y=obs)
+toy_dat
 ```
 
 For the model see the file `ToyExample.stan`. Next we run MCMC
 
 ```{r}
 ## for MCMC
+?stan
 fit <- stan(file = 'ToyExample.stan', data = toy_dat, init=0)
 ## For variational Bayes
 #ToyModel <- stan_model(file='ToyExample.stan')
@@ -180,6 +182,7 @@ The data can be loaded with the code below. A linear regression model (non-Bayes
 
 ```{r}
 library(MASS)
+?Boston
 summary(Boston)
 lreg <- lm(medv~.,data=Boston)
 summary(lreg)
@@ -204,6 +207,7 @@ The data can be prepared in the following way and put into the list 'boston_dat'
 y = Boston$medv
 n = length(y) # number of observations
 X = cbind(rep(1,n),subset(Boston, select = -medv)) # add one column of 1's for the constant
+X
 p = dim(X)[2] # number of variables plus the constant
 
 boston_dat=list(n=n, p=p, X=X, y=y)
